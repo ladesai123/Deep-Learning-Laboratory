@@ -35,6 +35,8 @@ env/
 *.pb
 checkpoint
 saved_model/
+saved_models/
+gan_images/
 
 # Dataset files (if large)
 *.zip
