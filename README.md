@@ -10,6 +10,7 @@ This repository contains implementations of various deep learning experiments, c
 2. [Experiment 3: Object Detection](#experiment-3-object-detection)
 3. [Experiment 6: Convolutional Autoencoder](#experiment-6-convolutional-autoencoder)
 4. [Experiment 7: Denoising Autoencoder](#experiment-7-denoising-autoencoder)
+5. [Experiment 11: Generative Adversarial Network (GAN)](#experiment-11-generative-adversarial-network-gan)
 
 ---
 
@@ -278,6 +279,132 @@ Train a denoising autoencoder that learns to remove noise from corrupted images,
 
 ---
 
+## Experiment 11: Generative Adversarial Network (GAN)
+
+**File:** `Exp11GAN.py`
+
+### Goal
+Train a Generative Adversarial Network (GAN) to generate realistic handwritten digit images from random noise. This demonstrates adversarial training where two neural networks compete: a generator that creates fake images and a discriminator that tries to distinguish real from fake images.
+
+### Procedure
+
+1. **Data Loading and Preprocessing**
+   - Load MNIST dataset containing 70,000 handwritten digits
+     - Training set: 60,000 images
+     - Test set: 10,000 images
+   - Normalize pixel values from [0, 255] to [-1, 1] range for GAN stability
+   - Flatten 28x28 images to 784-dimensional vectors
+   - Preprocessing to [-1, 1] matches the tanh activation in generator output
+
+2. **Generator Architecture**
+   - **Purpose:** Generate fake images from random noise
+   - **Input:** Random noise vector of size 100 (latent dimension)
+   - **Architecture:**
+     - Dense(256) + LeakyReLU(0.2) + BatchNormalization
+     - Dense(512) + LeakyReLU(0.2) + BatchNormalization
+     - Dense(1024) + LeakyReLU(0.2) + BatchNormalization
+     - Dense(784, tanh): Output layer produces 28x28 flattened image in [-1, 1]
+   - **BatchNormalization:** Stabilizes training with momentum=0.7
+   - **LeakyReLU:** Prevents dying neurons with alpha=0.2
+   - The generator learns to map random noise to realistic digit images
+
+3. **Discriminator Architecture**
+   - **Purpose:** Classify images as real (from MNIST) or fake (from generator)
+   - **Input:** Flattened 784-dimensional image
+   - **Architecture:**
+     - Dense(512) + LeakyReLU(0.2)
+     - Dense(256) + LeakyReLU(0.2)
+     - Dense(1, sigmoid): Output probability [0, 1]
+   - **Binary Classification:** 1 = real image, 0 = fake image
+   - Compiled with binary crossentropy loss and Adam optimizer
+
+4. **Combined Model (Generator Training)**
+   - **Purpose:** Train generator to fool the discriminator
+   - **Architecture:** Generator → (frozen) Discriminator
+   - Discriminator weights are frozen during generator training
+   - Generator tries to maximize discriminator's probability of classifying fakes as real
+   - Compiled with binary crossentropy loss and Adam optimizer
+
+5. **Adversarial Training Process**
+   
+   **Training Loop (5000 epochs by default):**
+   
+   **Discriminator Training:**
+   - Sample batch of real images from MNIST
+   - Generate batch of fake images from random noise
+   - Train discriminator to classify real images as 1 (real)
+   - Train discriminator to classify fake images as 0 (fake)
+   - Discriminator loss = average of real and fake losses
+   
+   **Generator Training:**
+   - Generate new batch from random noise
+   - Train generator via combined model with labels set to 1
+   - Generator tries to fool discriminator into thinking fakes are real
+   
+   **Hyperparameters:**
+   - Batch size: 32 images
+   - Learning rate: 0.0002 (Adam optimizer)
+   - Beta_1: 0.5 (momentum for Adam)
+   - Epochs: 5000 (reduced for demo, can be increased)
+
+6. **Progress Monitoring and Saving**
+   - **Logging:** Print losses and accuracy every 100 epochs
+     - Discriminator loss and accuracy on real/fake classification
+     - Generator loss (how well it fools discriminator)
+   - **Image Sampling:** Generate and save 25 sample images every 500 epochs
+     - Creates 5x5 grid of generated digits
+     - Saved to `gan_images/` directory
+     - Shows evolution of generator quality over training
+   - **Graceful Stop:** Ctrl+C interruption saves progress
+   - **Model Saving:** Save generator and discriminator weights to `saved_models/`
+   - **Loss Tracking:** Save discriminator and generator losses as numpy arrays
+
+7. **Output and Visualization**
+   - Generated image samples saved periodically during training
+   - Visual inspection shows improvement in image quality over epochs
+   - Early epochs produce noise, later epochs produce recognizable digits
+   - Saved models allow resuming training or generating new samples
+
+### Key Libraries
+- **TensorFlow/Keras:** Deep learning framework for building and training GANs
+- **NumPy:** Numerical operations and array handling
+- **Matplotlib:** Visualization of generated images
+
+### Key Concepts
+- **Generative Adversarial Networks (GANs):** Two-player minimax game
+- **Generator:** Creates fake data to fool discriminator
+- **Discriminator:** Distinguishes real from generated data
+- **Adversarial Training:** Generator and discriminator improve together
+- **Latent Space:** Random noise space that generator maps to images
+- **Mode Collapse:** Risk where generator produces limited variety (monitored via samples)
+- **Batch Normalization:** Stabilizes GAN training
+- **LeakyReLU:** Prevents gradient problems better than ReLU in GANs
+- **Binary Crossentropy:** Loss function for both generator and discriminator
+- **Tanh Activation:** Output range [-1, 1] for generator
+
+### Training Tips
+- **Monitor both losses:** If one dominates, adjust learning rates or architecture
+- **Sample frequently:** Visual inspection is crucial for GANs
+- **Be patient:** GANs can take many epochs to produce good results
+- **Expect instability:** GAN training is inherently unstable; oscillating losses are normal
+- **Graceful interruption:** Use Ctrl+C to stop training while preserving progress
+
+### Expected Results
+- **Early training (epochs 0-1000):** Generated images look like random noise
+- **Mid training (epochs 1000-3000):** Blurry digit shapes begin to emerge
+- **Later training (epochs 3000-5000):** Clear, recognizable handwritten digits
+- Discriminator accuracy should stabilize around 50-80% (not too high or low)
+- Generator should produce diverse digits, not just repeating the same patterns
+
+### Differences from Autoencoders (Exp 6, 7)
+- **GANs generate new data** from random noise, autoencoders compress/reconstruct existing data
+- **GANs use adversarial training**, autoencoders use reconstruction loss
+- **GANs have two networks** competing, autoencoders have one encoder-decoder
+- **GANs can be unstable**, autoencoders train more reliably
+- Both learn data representations but with different objectives
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -306,9 +433,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "3"  # Adjust based on your GPU assignment
 4. Wait for training to complete
 5. View visualizations and results
 
-**For Python Scripts (Exp 7):**
+**For Python Scripts (Exp 7, 11):**
 ```bash
+# Experiment 7: Denoising Autoencoder
 python Exp7DenoisingAutoencoder.py
+
+# Experiment 11: GAN (press Ctrl+C to stop gracefully)
+python Exp11GAN.py
 ```
 
 ---
@@ -322,6 +453,7 @@ Deep-Learning-Laboratory/
 ├── ImageDetectionExp3.ipynb          # Experiment 3: Object Detection (Version 2)
 ├── Exp6ConvAutoEncoder.ipynb         # Experiment 6: Convolutional Autoencoder
 ├── Exp7DenoisingAutoencoder.py       # Experiment 7: Denoising Autoencoder
+├── Exp11GAN.py                       # Experiment 11: Generative Adversarial Network
 ├── Untitled1.ipynb                   # Additional experiments/scratch work
 └── README.md                         # This file
 ```
@@ -367,7 +499,7 @@ Deep-Learning-Laboratory/
 - Add more experiments covering:
   - Recurrent Neural Networks (RNNs)
   - Long Short-Term Memory (LSTM) networks
-  - Generative Adversarial Networks (GANs)
+  - Advanced GAN architectures (DCGAN, StyleGAN, etc.)
   - Transfer Learning with pre-trained models
   - Attention mechanisms and Transformers
 - Include pre-trained model weights for faster inference
